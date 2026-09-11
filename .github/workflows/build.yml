@@ -153,6 +153,19 @@ jobs:
       CONFIG_FRAGMENT: ${{ matrix.config_fragment }}
       TAG: ${{ matrix.flavour == 'mesh' && needs.release.outputs.mesh_tag || needs.release.outputs.tag }}
     steps:
+      - name: Cache OpenWrt build artifacts (dl + staging_dir)
+        uses: actions/cache@v4
+        with:
+          path: |
+            openwrt/dl
+            openwrt/staging_dir
+            openwrt/build_dir
+            openwrt/tmp
+          key: openwrt-${{ env.DEVICE }}-${{ github.run_id }}
+          restore-keys: |
+            openwrt-${{ env.DEVICE }}-
+            openwrt-
+
       - name: Install build dependencies
         run: |
           set -euo pipefail
