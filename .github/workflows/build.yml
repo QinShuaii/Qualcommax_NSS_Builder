@@ -198,6 +198,13 @@ jobs:
             echo "KBUILD_BUILD_HOST=github"
           } >>"$GITHUB_ENV"
 
+      - name: Disable TLS verification for source downloads
+        run: |
+          set -euo pipefail
+          echo "CURL_OPTIONS=--insecure" >>"$GITHUB_ENV"
+          echo "WGET_OPTIONS=--no-check-certificate" >>"$GITHUB_ENV"
+          echo "TLS verification disabled (GitHub runner CA/time issue with openwrt mirrors)"
+
       - name: Download sources
         working-directory: openwrt
         run: |
