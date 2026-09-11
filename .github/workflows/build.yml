@@ -1,7 +1,6 @@
 name: Build
 
-# Builds the edma-nss images for every ipq807x device, in four groups and two
-# flavours (default, and mesh on the 11.4 firmware line):
+# Builds the edma-nss images for every ipq807x device, in memory-profile groups:
 #   check (upstream moved?) -> draft release -> build each group -> publish -> prune
 # All build parameters live in the `env:` block below and in devices/<group>/config.
 on:
@@ -30,7 +29,6 @@ env:
   TARGET: qualcommax/ipq807x
   VARIANT: edma-nss
   RELEASE_PREFIX: edma-nss
-  MESH_RELEASE_PREFIX: edma-nss-mesh
   KEEP: "2"                     # newest releases to retain, per prefix
   FEEDS: "src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss"
 
@@ -66,7 +64,6 @@ jobs:
       NSS_SHA: ${{ needs.check.outputs.nss_sha }}
     outputs:
       tag: ${{ steps.draft.outputs.tag }}
-      mesh_tag: ${{ steps.draft.outputs.mesh_tag }}
     steps:
       - id: draft
         run: |
@@ -74,9 +71,9 @@ jobs:
           date=$(date -u +%F)
           stamp=$(date -u +%Y%m%dT%H%M%SZ)
 
-          # One draft per flavour. The build jobs upload into them; each is
-          # published only once every group of both flavours has succeeded, so
-          # a partial image set never goes out.
+          # One draft per flavour. The build jobs upload into it; it is
+          # published only once every group has succeeded, so a partial image
+          # set never goes out.
           draft() {
             local prefix="$1" name="$2" tag
             tag="${prefix}-${stamp}-${GITHUB_RUN_ID}"
@@ -92,14 +89,6 @@ jobs:
               fi
               echo "- **Trigger**: \`${GITHUB_EVENT_NAME}\`"
               echo
-              if [[ "$prefix" == "$MESH_RELEASE_PREFIX" ]]; then
-                echo "**802.11s mesh offload build.** Same stack as the \`${VARIANT}\`"
-                echo "release of the same date, on NSS firmware 11.4.0.5 — the last"
-                echo "firmware line that accepts a mesh interface — with the ath11k mesh"
-                echo "path/proxy-path offload compiled in. Take this one only if you run"
-                echo "802.11s; the \`${VARIANT}\` release carries the newer 12.5 firmware."
-                echo
-              fi
               echo "Pick the \`...-<your device>-squashfs-sysupgrade.bin\` asset and flash"
               echo "it over an existing OpenWrt install. These are sysupgrade images only -"
               echo "there is no factory image; install stock OpenWrt first if you are not"
@@ -123,11 +112,10 @@ jobs:
 
           {
             echo "tag=$(draft "$RELEASE_PREFIX" "$VARIANT")"
-            echo "mesh_tag=$(draft "$MESH_RELEASE_PREFIX" "$MESH_RELEASE_PREFIX")"
           } >>"$GITHUB_OUTPUT"
 
   build:
-    name: Build ${{ matrix.device }} (${{ matrix.flavour }})
+    name: Build ${{ matrix.device }}
     needs: [check, release]
     runs-on: ubuntu-26.04
     timeout-minutes: 360
@@ -139,22 +127,15 @@ jobs:
         # One entry per devices/<name>/ directory. The ipq807x-* groups exist
         # because the ath11k memory profile is compile-time and image-wide, so
         # boards can only share a build when they share a profile.
-        device: [ipq807x-512m]
-        # The flavour is a .config fragment on top of the same overlays and the
-        # same source trees; mesh needs the 11.4 firmware, which is image-wide
-        # too, so it cannot share a build with the default flavour either.
-        flavour: [default]
-        include:
-          - flavour: mesh
-            config_fragment: devices/common/config.mesh
+        device: [ipq807x-1g]
     env:
       GH_TOKEN: ${{ github.token }}
       DEVICE: ${{ matrix.device }}
-      CONFIG_FRAGMENT: ${{ matrix.config_fragment }}
-      TAG: ${{ matrix.flavour == 'mesh' && needs.release.outputs.mesh_tag || needs.release.outputs.tag }}
+      CONFIG_FRAGMENT: ""
+      TAG: ${{ needs.release.outputs.tag }}
     steps:
-      - name: Cache OpenWrt build artifacts (dl + staging_dir)
-        uses: actions/cache@v4
+      - name: Restore OpenWrt build cache (dl + staging_dir)
+        uses: actions/cache/restore@v4
         with:
           path: |
             openwrt/dl
@@ -174,8 +155,8 @@ jobs:
           # for Ubuntu 26.04. rsync is for prepare-build.sh's overlay step. Everything else
           # (file, wget, unzip, gh) is preinstalled on the GitHub runner image.
           # The runner image carries third-party apt repos the build has no use for,
-          # and their indexes intermittently fail to verify; the install below is the
-          # step that has to succeed.
+          # and their indexes intermittently fail to verify; the install below is
+          # the step that has to succeed.
           sudo apt-get update || true
           sudo apt-get install -y \
             bzip2 g++ gawk gcc git glibc-source libncurses-dev make rsync
@@ -253,7 +234,25 @@ jobs:
         working-directory: openwrt
         run: |
           set -euo pipefail
-          make -j"$(nproc)"
+          # V=sc + BUILD_LOG=1: every subsystem logs to logs/<dir>/ even on
+          # success, and a failure is captured with the command output that
+          # caused it. Without these, a failed image step prints nothing but
+          # "ERROR: target/linux failed to build."
+          if ! make -j"$(nproc)" V=sc BUILD_LOG=1; then
+            echo "::warning::parallel build failed; retrying the failing part serially with V=s"
+            make -j1 V=s BUILD_LOG=1
+          fi
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-${{ env.DEVICE }}
+          path: |
+            openwrt/logs/
+            openwrt/.config
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload images
         run: |
@@ -286,6 +285,19 @@ jobs:
             echo "- assets: ${#assets[@]}"
           } >>"$GITHUB_STEP_SUMMARY"
 
+      - name: Save OpenWrt build cache (dl + staging_dir)
+        # always(): saving after a failed build is the point - the next run
+        # resumes incrementally from the failed tree instead of cold-building.
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            openwrt/dl
+            openwrt/staging_dir
+            openwrt/build_dir
+            openwrt/tmp
+          key: openwrt-${{ env.DEVICE }}-${{ github.run_id }}
+
   publish:
     name: Publish release
     needs: [release, build]
@@ -297,7 +309,6 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ needs.release.outputs.tag }}
-      MESH_TAG: ${{ needs.release.outputs.mesh_tag }}
       BUILD_RESULT: ${{ needs.build.result }}
     steps:
       - name: Publish or discard
@@ -305,16 +316,12 @@ jobs:
           set -euo pipefail
           if [[ "$BUILD_RESULT" != "success" ]]; then
             # A half-built release would silently be missing devices, and a
-            # draft left behind is never pruned. Drop both and fail. No
+            # draft left behind is never pruned. Drop it and fail. No
             # --cleanup-tag: a draft's tag exists only inside the release.
             gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes
-            gh release delete "$MESH_TAG" --repo "$GITHUB_REPOSITORY" --yes
-            echo "::error::a build group failed ($BUILD_RESULT); draft releases discarded"
+            echo "::error::a build group failed ($BUILD_RESULT); draft release discarded"
             exit 1
           fi
-          # --latest stays on the default flavour: mesh costs the 12.5 firmware
-          # line, so it is the deliberate pick, never the one a link lands on.
-          gh release edit "$MESH_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest=false
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
 
   prune:
@@ -335,4 +342,3 @@ jobs:
           # Per prefix: the two flavours are separate series, and a shared keep
           # window would drop one flavour's newest image to hold the other's.
           PREFIX="$RELEASE_PREFIX" bash scripts/prune-releases.sh
-          PREFIX="$MESH_RELEASE_PREFIX" bash scripts/prune-releases.sh
