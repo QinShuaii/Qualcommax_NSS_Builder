@@ -218,6 +218,27 @@ jobs:
           echo "WGET_OPTIONS=--no-check-certificate" >>"$GITHUB_ENV"
           echo "TLS verification disabled (GitHub runner CA/time issue with openwrt mirrors)"
 
+      - name: Pre-fetch known-flaky source tarballs
+        working-directory: openwrt
+        run: |
+          set -euo pipefail
+          mkdir -p dl
+          # findutils 4.10.0: openwrt CDN intermittently 404s for GitHub runner IPs.
+          # Pre-fetch from GNU mirrors (multiple fallbacks) so make download skips it.
+          if [ ! -f dl/findutils-4.10.0.tar.xz ]; then
+            for url in \
+              "https://ftpmirror.gnu.org/findutils/findutils-4.10.0.tar.xz" \
+              "https://mirror.netcologne.de/gnu/findutils/findutils-4.10.0.tar.xz" \
+              "https://sources.cdn.openwrt.org/findutils-4.10.0.tar.xz"; do
+              echo "trying $url"
+              if curl -fsSL --connect-timeout 10 --retry 3 --insecure -o dl/findutils-4.10.0.tar.xz "$url"; then
+                echo "fetched findutils from $url"
+                break
+              fi
+            done
+          fi
+          ls -la dl/findutils-4.10.0.tar.xz 2>/dev/null || echo "WARN: findutils still missing (will retry in make download)"
+
       - name: Download sources
         working-directory: openwrt
         run: |
