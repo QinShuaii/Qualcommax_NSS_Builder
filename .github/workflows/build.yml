@@ -264,9 +264,9 @@ jobs:
           # device, so the four groups never collide in the release. The build
           # metadata does, so it is uploaded under the group name instead of
           # dropped - it is the answer to "what exactly was in this image".
-          mapfile -t assets < <(find "$out" -maxdepth 1 -type f -name 'openwrt-*-squashfs-sysupgrade.bin')
-          [[ ${#assets[@]} -gt 0 ]] || { echo "::error::no sysupgrade images in $out"; exit 1; }
-          grep 'sysupgrade.bin' "$out/sha256sums" >"sha256sums-${DEVICE}.txt"
+          mapfile -t assets < <(find "$out" -maxdepth 1 -type f \( -name 'openwrt-*-squashfs-sysupgrade.bin' -o -name 'openwrt-*-squashfs-factory.ubi' \))
+          [[ ${#assets[@]} -gt 0 ]] || { echo "::error::no sysupgrade/factory images in $out"; exit 1; }
+          grep -E 'sysupgrade.bin|factory.ubi' "$out/sha256sums" >"sha256sums-${DEVICE}.txt"
           cp "$out/config.buildinfo" "config-${DEVICE}.buildinfo"
 
           # --clobber, so re-running a job that died mid-upload is a recovery
