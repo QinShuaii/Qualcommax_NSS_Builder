@@ -1,280 +1,102 @@
-# Qualcommax NSS Builder
+# Qualcommax NSS Builder（个人定制版 · Redmi AX6）
 
-### OpenWrt image builder for IPQ807x — NSS hardware offload on the upstream EDMA drivers
+### Redmi AX6 专用 OpenWrt 固件云编译 — NSS 硬件加速，基于上游 EDMA 驱动
 
-[![Build](https://img.shields.io/github/actions/workflow/status/JuliusBairaktaris/Qualcommax_NSS_Builder/build.yml?branch=main&style=flat-square&logo=github&label=Build)](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/actions/workflows/build.yml)
-[![Lint](https://img.shields.io/github/actions/workflow/status/JuliusBairaktaris/Qualcommax_NSS_Builder/lint.yml?branch=main&style=flat-square&logo=github&label=Lint)](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/actions/workflows/lint.yml)
-[![License](https://img.shields.io/github/license/JuliusBairaktaris/Qualcommax_NSS_Builder?style=flat-square&label=License)](LICENSE)
-[![Last Commit](https://img.shields.io/github/last-commit/JuliusBairaktaris/Qualcommax_NSS_Builder?style=flat-square&label=Last%20Commit)](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/commits/main)
+[![Build](https://img.shields.io/github/actions/workflow/status/a544883434-ui/Qualcommax_NSS_Builder/build.yml?branch=main&style=flat-square&logo=github&label=Build)](https://github.com/a544883434-ui/Qualcommax_NSS_Builder/actions/workflows/build.yml)
+[![License](https://img.shields.io/github/license/a544883434-ui/Qualcommax_NSS_Builder?style=flat-square&label=License)](LICENSE)
+[![Last Commit](https://img.shields.io/github/last-commit/a544883434-ui/Qualcommax_NSS_Builder?style=flat-square&label=Last%20Commit)](https://github.com/a544883434-ui/Qualcommax_NSS_Builder/commits/main)
 
-A GitHub Actions pipeline that builds an OpenWrt image for **every IPQ807x
-device in the target** — all 39 of them: Qualcomm NSS hardware offload running
-on OpenWrt main's **upstream `qca_edma` / `qca_ppe` ethernet drivers**
-([PR #22381](https://github.com/openwrt/openwrt/pull/22381)) — not the vendor
-`qca-nss-dp` / `qca-ssdk` stack every other NSS build uses. Built from
-[openwrt-nss-edma](https://github.com/JuliusBairaktaris/openwrt-nss-edma) and
-[nss-packages](https://github.com/JuliusBairaktaris/nss-packages).
+> **这是 [JuliusBairaktaris/Qualcommax_NSS_Builder](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder) 的个人 fork。**
+> 只为一台机器服务：**红米 AX6 硬改版（IPQ8072A + 1GB RAM + 240MB NAND，stock 大分区布局）**。
+> 已裁剪到单设备构建，与上游的 39 设备全家桶无关。
 
-New to NSS offload? The wiki page
-**[NSS Offload Explained](https://github.com/JuliusBairaktaris/openwrt-nss-edma/wiki/NSS-Offload-Explained)**
-covers the concept from the ground up. Architecture, runtime model and measured
-results are in the
-**[full wiki](https://github.com/JuliusBairaktaris/openwrt-nss-edma/wiki)**.
+## 这个 fork 改了什么
 
----
+相比上游，本 fork 的差异：
 
-## Use it
+| 项目 | 说明 |
+|---|---|
+| **单设备矩阵** | 只构建 `ipq807x-1g` 组里的 `redmi_ax6-stock`（换芯 SoC + 1GB 内存 + stock 大分区定制变体） |
+| **新增设备定义** | `redmi_ax6-stock`：custom U-Boot 布局（`KERNEL_SIZE` + `ARTIFACTS`，产 **factory.ubi**，可走 uboot 网页直刷），配套 `ipq8071-ax6-stock.dts`（SMEM 分区）与 board 级脚本接入（caldata / 02_network / 01_leds / platform.sh / bootcount / ubootenv 共 6 处） |
+| **内存组选择** | 1g 组：`NSS_MEM_PROFILE_HIGH` + `ATH11K_MEM_PROFILE_1G`，按实机内存打满 profile |
+| **产物** | `sysupgrade.bin` + `factory.ubi` 两种格式，release 附 buildinfo 与 sha256sums |
 
-Every release carries one sysupgrade image per device, named after its OpenWrt
-profile id. Grab `...-<your device>-squashfs-sysupgrade.bin` from the newest
-`edma-nss-*`
-[release](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/releases)
-and flash it:
+上游原版面向 39 台设备 + AX3600 专属优化 + mesh/PPE 测试线，这里全部裁掉——
+单设备不需要那些复杂度。技术栈本身未动：NSS 硬件卸载跑在 OpenWrt 主线的
+`qca_edma` / `qca_ppe` 以太网驱动上（来自
+[PR #22381](https://github.com/openwrt/openwrt/pull/22381)），而非各家 NSS 构建常用的
+`qca-nss-dp` / `qca-ssdk` 方案。源码来自
+[openwrt-nss-edma](https://github.com/a544883434-ui/openwrt-nss-edma)（同款 fork，含上述 AX6 补丁）。
+
+## 下载
+
+从 [Releases](https://github.com/a544883434-ui/Qualcommax_NSS_Builder/releases) 取最新版：
+
+- `...redmi_ax6-stock-squashfs-sysupgrade.bin` — 已在跑 OpenWrt 时系统内升级
+- `...redmi_ax6-stock-squashfs-factory.ubi` — custom U-Boot 网页（192.168.1.1）直刷
+
+> [!WARNING]
+> 这是**硬改机定制固件**：SoC 换芯（8071A→8072A）+ 大分区布局，只适配同规格改装机。
+> 原装 Redmi AX6 请用上游官方版或社区固件，**不要刷本仓库产物**。
+
+## 运行时模型（与上游一致）
+
+`nss` 服务在启动早期一次性完成数据面决策：装载 NSS 数据面、引导固件、让 Wi-Fi
+直接以卸载模式（wifili）上线。`nss-up` 随网络就绪叠加 ECM（及配置后的 SQM）。
+日志看 `logread -e nss`；健康检查 `nss-status` 或 LuCI **Status → NSS Offload**。
+
+万能恢复开关（sysupgrade 后仍生效）：
 
 ```sh
-sysupgrade -n /tmp/openwrt-qualcommax-ipq807x-xiaomi_ax3600-squashfs-sysupgrade.bin
+uci set nss.general.enabled='0'; uci commit nss
 ```
 
-Or via LuCI: **System → Backup / Flash Firmware**, upload, uncheck "Keep
-settings" for a first-time flash.
+## 默认集成
 
-Each build also publishes an `edma-nss-mesh-*` release with the same images
-built for **802.11s mesh offload**. Mesh interfaces are only accepted by NSS
-firmware 11.4.0.5, the last line that supports them, so that release carries
-11.4 in place of the 12.5 firmware the default images ship. Take it if you run
-802.11s; take `edma-nss-*` otherwise.
-
-Separately, the `ppe-offload-test` prerelease carries **PPE hardware
-flow-offload test images** — stock OpenWrt plus LuCI on the in-kernel
-`qca_edma`/`qca_ppe` datapath, with no NSS at all — for every ipq807x *and*
-ipq60xx board. It is one permanent prerelease whose assets and notes are
-replaced in place, so the link keeps working. These are for testing the
-offload, not a router build.
-
-These are **sysupgrade images only** — there is no factory image. You must
-already be running OpenWrt on the device; if you are on stock vendor firmware,
-install stock OpenWrt first (your device's
-[OpenWrt device page](https://openwrt.org/toh/start) covers that), then flash
-this over it.
-
-<details>
-<summary><b>Devices built</b> — all 39 in <code>qualcommax/ipq807x</code></summary>
-
-The split is the ath11k memory profile, which is compile-time and image-wide,
-so each group of boards that shares a profile shares a build.
-
-| Group | RAM | Devices |
-|---|---|---|
-| `xiaomi_ax3600` | 512 MB | Xiaomi AX3600 (own build: adds the board's wireless defaults and SQM template) |
-| `ipq807x-1g` | 1 GB+ | Aliyun AP8220, Arcadyan AW1000, Asus RT-AX89X, Buffalo WXR-5950AX12, Dynalink DL-WRX36, Edgecore EAP102, Linksys HomeWRK, Linksys MX4200 v2, Linksys MX4300, Linksys MX5300, Linksys MX8500, Netgear RAX120v2, Netgear RBR750, Netgear RBS750, Netgear SXR80, Netgear SXS80, Netgear WAX620, Netgear WAX630, prpl Haze, QNAP 301w, Spectrum SAX1V1K, TCL LINKHUB HH500V, TP-Link Deco X80-5G, TP-Link EAP620 HD v1, TP-Link EAP660 HD v1, Xiaomi AX9000, Yuncore AX880, Zbtlink ZBT-Z800AX, Zyxel NBG7815, Zyxel NWA110AX, Zyxel NWA210AX |
-| `ipq807x-512m` | 512 MB | CMCC RM2-6, Compex WPQ873, Edimax CAX1800, Linksys MX4200 v1, Redmi AX6, ZTE MF269 |
-| `ipq807x-256m` | 256 MB | Netgear WAX218 |
-
-The AX3600 is the board every change is validated on; the rest carry the same
-data path and the same NSS device-tree nodes, and are built so a bug report
-starts from a known image instead of a hand-rolled config.
-
-</details>
-
-**Runtime model:** the `nss` service (`/etc/init.d/nss`) makes the data-path
-decision once, early in boot: it arms the NSS data plane, boots the firmware,
-and loads Wi-Fi with offload already selected — the radios come up directly
-on the wifili path, with no later rebind. Its `/usr/sbin/nss-up` instance
-then layers ECM (and SQM, once you have configured it) on top as the network
-comes up; output lands in the system log (`logread -e nss`). If arming or
-the Wi-Fi offload registration fails, the boot falls back to host-mode Wi-Fi
-and the host stack on its own. **The universal recovery path** is the uci
-flag: `uci set nss.general.enabled='0'; uci commit nss` (survives
-sysupgrade) — with it set, every boot is a stock host-only system.
-
-Check plane health any time with `nss-status` over ssh, or in LuCI under
-**Status → NSS Offload**.
-
-Wi-Fi ships **disabled**, like any OpenWrt image with no factory credentials —
-no image can carry a working password without publishing it here. Connect a
-cable, set an SSID and key in LuCI → Network → Wireless, and enable the radios.
-On the AX3600 the radio paths, band, channel and 802.11k/v options come
-preconfigured, so there is no first-boot detection race; the other images use
-OpenWrt's own first-boot radio detection.
-
----
-
-## What ships by default
-
-The `edma-nss` image enables the full offload stack plus a hardened, batteries-
-included desktop-router config:
-
-| Area | What's on |
+| 模块 | 说明 |
 |---|---|
-| **NSS data plane** | `kmod-qca-nss-drv` + the `kmod-qca-ppe-nss` glue |
-| **Connection offload** | ECM (`kmod-qca-nss-ecm`), PPPoE manager (`kmod-qca-nss-drv-pppoe`) — IPv4 NAT, IPv6 routing, PPPoE-over-VLAN |
-| **Bridge offload** | `kmod-qca-nss-drv-bridge-mgr` — wired LAN bridging in hardware |
-| **Multicast** | `kmod-qca-mcs` — same-subnet multicast hardware-bridged to snooped members |
-| **SQM** | NSS qdiscs (`-qdisc`/`-igs`) + `sqm-scripts-nss` (`nss-edma.qos`, DSCP fast lane both directions) + `luci-app-sqm`. Ships as a **disabled template**: set `download`/`upload` to ~90-95 % of your measured line rate and enable it (LuCI **Network → SQM** or `uci`) — there is no safe universal default rate |
-| **QoS marking** | `nssqos` + `luci-app-nssqos` — DSCP marking & fast-lane prioritization rules (CLI `/etc/config/nssqos`, LuCI **Network → QoS Marking (NSS)**), effective on accelerated flows; the applied class shows per flow in the **DSCP** column of **Status → Realtime → Connections** |
-| **Wi-Fi** | ath11k NSS offload (wifili) on both radios (`CONFIG_ATH11K_NSS_SUPPORT`); radio paths, band, channel and 802.11k/v preconfigured, interfaces ship disabled with no key — set SSID/key over the LAN port and enable them |
-| **Diagnostics** | `nss-status` CLI health report (now incl. fast-lane counters) + LuCI **Status → NSS Offload** page + per-station firmware Wi-Fi counters (`/sys/kernel/debug/ieee80211/phy*/netdev:*/stations/<mac>/nss_stats`: A-MSDU aggregation, MPDU retries) |
-| **Firmware/profile** | `NSS.FW.12.5-210-HK.R`; NSS memory profile matched to the board's RAM (HIGH / MEDIUM / LOW) |
-| **Security** | OpenSSH only (post-quantum KEX, AEAD/ETM, RSA ≥ 3072), `PKG_*` hardening (ASLR/PIE, stack protector, FORTIFY_3, RELRO, seccomp), WAN DROP + BCP38, HTTPS redirect, OQS provider in OpenSSL |
-| **Toolchain** | GCC 15 + Graphite, Binutils 2.46, Mold linker, LTO, `-mcpu=cortex-a53+crc+crypto`; ccache off |
-| **Userland** | LuCI (SSL), `htop`, `iperf3`, `curl`, BBR |
+| NSS 数据面 | `kmod-qca-nss-drv` + `kmod-qca-ppe-nss` glue |
+| 连接卸载 | ECM（IPv4 NAT / IPv6 路由 / PPPoE-over-VLAN） |
+| 桥接卸载 | 有线 LAN 硬件桥接 |
+| 组播 | `kmod-qca-mcs` |
+| SQM | NSS qdisc + `sqm-scripts-nss`（默认停用模板，按实测线路带宽的 90-95% 配置后启用） |
+| Wi-Fi | ath11k NSS offload（wifili），双射频 |
+| 安全 | OpenSSH（抗量子 KEX/AEAD/ETM）、ASLR/PIE/FORTIFY/RELRO/seccomp、WAN DROP + BCP38 |
+| 固件 | `NSS.FW.12.5-210-HK.R`，HIGH 内存 profile |
 
-Toolchain and package pins live in
-[`devices/common/config`](devices/common/config), shared by every image;
-`devices/<group>/config` adds only the device list and the memory profiles.
+Wi-Fi 出厂禁用（镜像不可能内置密码）：接网线，LuCI → Network → Wireless 配 SSID/密钥并启用射频。
 
-## Enable the rest in your fork
+## 自行构建
 
-These are build-verified and wired in code, but **off by default** because the
-reference network does not use them. Add the package to
-`devices/common/config` and rebuild:
+仓库即工作流：fork 后改 [`devices/`](devices/) 配置，push 触发 GitHub Actions。
+`env:` 参数集中在 [`.github/workflows/build.yml`](.github/workflows/build.yml)。
 
-| Feature | Add to config | Notes |
-|---|---|---|
-| Routed L3 multicast (IPTV WAN→LAN) | `CONFIG_PACKAGE_igmpproxy=y` (or `smcroute`) | ECM offloads each kernel MFC entry to the PPE; needs a real WAN multicast source and a two-VIF topology. See [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md). |
-| MAP-T / 464XLAT | `CONFIG_PACKAGE_kmod-nat46=y` | nat46 headers + QCA MAP-T exports are staged in the tree. |
-| VXLAN | `CONFIG_PACKAGE_kmod-vxlan=y` | fdb/age-update offload via kernel patch `0972`. |
-| MACVLAN | `CONFIG_PACKAGE_kmod-macvlan=y` | ECM support via kernel patch `0962`. |
-| GRE | `CONFIG_PACKAGE_kmod-gre=y` | ECM GRE support builds. |
-
-Not available on this platform/firmware: IPsec (ESP) offload, TLS/DTLS, and
-CoDel ECN marking. (Wi-Fi mesh offload works on an 11.4-firmware build —
-`NSS_FIRMWARE_VERSION_11_4` + `ATH11K_NSS_MESH_SUPPORT`; only the default 12.5
-firmware blocks it.) See the
-[Limitations](https://github.com/JuliusBairaktaris/openwrt-nss-edma/wiki/Limitations-and-Roadmap)
-page.
-
----
-
-## Measured results
-
-AX3600 (IPQ8071A, 512 MB), `NSS.FW.12.5-210`, kernel 6.18 — details in the
-[wiki](https://github.com/JuliusBairaktaris/openwrt-nss-edma/wiki):
-
-| Metric | Host path | NSS offload |
-|---|---|---|
-| 311 Mbit/s PPPoE NAT | ~42 % of one core (softirq) | **~99.7 % CPU idle** |
-| SQM at 285 Mbit ingress | CPU-bound | **258 Mbit goodput, ~99 % idle** |
-| RTT under shaped load | bufferbloat | **16 ms avg vs 20 idle — flat** |
-| Wi-Fi data path | mac80211/ath11k on the CPU | **wifili on the NSS cores** |
-
----
-
-## Build it yourself
-
-Everything is parameterized in the `env:` block of
-[`.github/workflows/build.yml`](.github/workflows/build.yml) — fork the repo,
-edit, and the pipeline builds on push. Or build locally:
+本地构建：
 
 ```sh
-git clone --branch nss-edma-rework https://github.com/JuliusBairaktaris/openwrt-nss-edma openwrt
+git clone --branch nss-edma-rework https://github.com/a544883434-ui/openwrt-nss-edma openwrt
 cd openwrt
 cp feeds.conf.default feeds.conf
 echo "src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss" >> feeds.conf
 ./scripts/feeds update -a && ./scripts/feeds install -a
 B=../Qualcommax_NSS_Builder/devices
-cat "$B/common/config" "$B/xiaomi_ax3600/config" > .config   # or any devices/<group>
+cat "$B/common/config" "$B/ipq807x-1g/config" > .config
 make defconfig && make -j"$(nproc)"
 ```
 
 > [!IMPORTANT]
-> **Updating an existing checkout:** both branches (`nss-edma-rework` and the
-> `edma-nss` feed) are periodically **rebased** — fixes are folded into the
-> commits that own them, so history gets rewritten. A plain `git pull` will
-> fail or produce a broken merge, and `./scripts/feeds update` (which runs
-> `git pull --ff-only` inside `feeds/nss`) fails quietly and leaves the feed
-> **stale** — a common source of build errors that don't reproduce upstream.
-> Update like this instead:
->
-> ```sh
-> git fetch origin && git reset --hard origin/nss-edma-rework
-> rm -rf feeds/nss package/feeds/nss
-> ./scripts/feeds update -a && ./scripts/feeds install -a
-> make defconfig
-> ```
->
-> Before reporting a build error, verify you are current: `git log --oneline -1`
-> in the tree and in `feeds/nss` must match the tips of
-> [`nss-edma-rework`](https://github.com/JuliusBairaktaris/openwrt-nss-edma/commits/nss-edma-rework)
-> and [`edma-nss`](https://github.com/JuliusBairaktaris/nss-packages/commits/edma-nss).
+> `nss-edma-rework` 分支会周期性 rebase（历史重写）。更新检查outs时用
+> `git fetch origin && git reset --hard origin/nss-edma-rework`，
+> 并重建 feeds（`rm -rf feeds/nss package/feeds/nss` 后重新 update/install），
+> 普通 `git pull` 会失败或产生坏合并。
 
-The NSS runtime tools (`nss-up`, `nss-status`, the `nss` boot service, the
-QoS marking CLI/UI) ship as regular packages from the openwrt fork
-(`nss-tools`, `nssqos`, `luci-app-nss`, `luci-app-nssqos`) — plain fork
-checkouts get them by selecting the packages, no builder needed. The few
-remaining overlay files (SSH config and QoL defaults in `devices/common/files*/`,
-the AX3600's wireless defaults and SQM template in `devices/xiaomi_ax3600/files*/`)
-are copied into the image with a
-`files/` directory or the builder pipeline. See [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md)
-for the full customization guide and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-for how the pipeline works.
+## 致谢
 
-### Repo layout
-
-```
-devices/common/          # shared by every image
-  config                 # the .config bulk (toolchain, hardening, NSS packages)
-  files/                 # base rootfs overlay (sshd_config, QoL uci-defaults)
-  files.edma-nss/        # edma-nss overlay (rc.local)
-devices/xiaomi_ax3600/   # one directory per build: config + optional overlays
-devices/ipq807x-{1g,512m,256m}/
-devices/common-ppe/      # shared by the PPE test images (stock OpenWrt + LuCI)
-devices/ppe-{ipq807x,ipq60xx}/
-scripts/                 # check-updates, prepare-build, prune-releases (tested, linted)
-docs/                    # CUSTOMIZE.md, ARCHITECTURE.md
-.github/workflows/       # build.yml, build-ppe.yml, lint.yml
-```
-
-Each `devices/<name>/config` is concatenated onto `devices/common/config` (or
-`devices/common-ppe/config`, which `COMMON` selects for the PPE images) and
-resolved with `make defconfig`, which is verified to have kept every requested
-symbol — a silently reduced image fails the build instead of shipping.
-
-The pipeline runs `check → release → build → publish → prune`: `check` resolves
-the upstream/NSS ref to a SHA and skips a scheduled build when nothing changed;
-`release` opens a draft release; `build` runs once per device group in
-parallel, applying the config + overlays, compiling, and uploading its images
-into that draft; `publish` makes it public once every group succeeded, and
-discards it otherwise, so a release is never missing devices; `prune` keeps the
-newest `KEEP` releases. Builds are uncached (fresh runner, reproducible
-`SOURCE_DATE_EPOCH`) and the pipeline is linted (`actionlint`, `shellcheck`,
-`yamllint`) on every PR.
-
-`build-ppe.yml` is the same shape with one difference: instead of a new release
-per build it keeps a single prerelease, `ppe-offload-test`, and replaces its
-assets and notes in place. The notes record the commit they were built from,
-and only a successful build writes them — so a failed run is retried on the
-next scheduled tick rather than stamping itself as done.
-
----
-
-## Contributing
-
-Issues and PRs welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
-
-## Acknowledgements
-
-- **[Ansuel (Christian Marangi)](https://github.com/Ansuel)** — the
-  [EDMA rework](https://github.com/openwrt/openwrt/pull/22381) this stack builds on
-- **[qosmio](https://github.com/qosmio)** — NSS development, the
-  [openwrt-ipq](https://github.com/qosmio/openwrt-ipq) tree, and the Wi-Fi
-  offload patch lineage
-- **[rodriguezst](https://github.com/rodriguezst)** — original
-  [ipq807x-openwrt-builder](https://github.com/rodriguezst/ipq807x-openwrt-builder)
-- **OpenWrt community** — the
-  [IPQ807x NSS Build thread](https://forum.openwrt.org/t/ipq807x-nss-build/148529)
-
-## Support the project
-
-This is an unpaid, single-maintainer effort. If this work is useful to you,
-consider chipping in — it goes toward IPQ807x development and hardware to start
-looking into **IPQ50xx** and **IPQ60xx** next.
-
-- **[GitHub Sponsors](https://github.com/sponsors/JuliusBairaktaris)** — zero-fee, GitHub-native
-- **[PayPal](https://paypal.me/JuliusBairaktaris)** — one-off donations
-
-Thank you!
+- **[Ansuel (Christian Marangi)](https://github.com/Ansuel)** — 本栈所依赖的 [EDMA rework](https://github.com/openwrt/openwrt/pull/22381)
+- **[JuliusBairaktaris](https://github.com/JuliusBairaktaris)** — 上游 builder 与 nss-edma 树的原作者，本 fork 的一切基础
+- **[qosmio](https://github.com/qosmio)** — NSS 开发与 Wi-Fi offload 补丁谱系
+- **OpenWrt 社区** — [IPQ807x NSS Build 帖](https://forum.openwrt.org/t/qualcommax-nss-build/148529)
 
 ## License
 
-[GPL-2.0](LICENSE), consistent with OpenWrt.
+[GPL-2.0](LICENSE)，与 OpenWrt 一致。
