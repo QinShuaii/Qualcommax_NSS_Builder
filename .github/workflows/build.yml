@@ -127,7 +127,7 @@ jobs:
         # One entry per devices/<name>/ directory. The ipq807x-* groups exist
         # because the ath11k memory profile is compile-time and image-wide, so
         # boards can only share a build when they share a profile.
-        device: [ipq807x-1g, ipq807x-512m-redmi]
+        device: [ipq807x-512m-redmi]
     env:
       GH_TOKEN: ${{ github.token }}
       DEVICE: ${{ matrix.device }}
