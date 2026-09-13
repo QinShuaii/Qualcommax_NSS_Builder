@@ -1,0 +1,17 @@
+#
+# 512 MB ipq807x profile group, stock-layout Redmi AX6 (original hardware).
+#
+# For an ORIGINAL Redmi AX6: IPQ8071A SoC, 512 MB RAM, stock large-partition
+# layout with a custom U-Boot. Same board scripts as redmi_ax6-stock in the
+# 1g group, compiled with the 512 MB memory profiles so ath11k and NSS buffers
+# match the smaller RAM. The SoC difference (8071A vs 8072A) needs no
+# build-time switch - the qualcommax kernel covers the whole IPQ807x family.
+#
+
+CONFIG_TARGET_MULTI_PROFILE=y
+CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+
+CONFIG_ATH11K_MEM_PROFILE_512M=y
+CONFIG_NSS_MEM_PROFILE_MEDIUM=y
+
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_redmi_ax6-stock=y
