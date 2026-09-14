@@ -23,7 +23,7 @@ permissions:
 
 env:
   UPSTREAM_REPO: a544883434-ui/openwrt-nss-edma
-  UPSTREAM_REF: nss-edma-rework
+  UPSTREAM_REF: hermes-v12
   NSS_REPO: JuliusBairaktaris/nss-packages
   NSS_REF: edma-nss
   TARGET: qualcommax/ipq807x
