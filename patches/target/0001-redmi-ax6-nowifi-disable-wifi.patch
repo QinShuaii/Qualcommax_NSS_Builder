@@ -1,0 +1,10 @@
+--- a/target/linux/qualcommax/dts/ipq8071-ax6-stock.dts
++++ b/target/linux/qualcommax/dts/ipq8071-ax6-stock.dts
+@@ -49,3 +49,7 @@
+ 		};
+ 	};
+ };
++
++&wifi {
++	status = "disabled";
++};
