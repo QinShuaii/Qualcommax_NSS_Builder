@@ -6,11 +6,14 @@ name: Build
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
+      - nowifi
     paths:
       - 'devices/**'
       - '!devices/common-ppe/**'
       - '!devices/ppe-*/**'
+      - 'patches/**'
       - 'scripts/**'
       - '.github/workflows/build.yml'
 
