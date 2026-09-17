@@ -191,6 +191,40 @@ jobs:
           grep -A2 '^&wifi {' "$f" | grep -q 'status = "disabled";'
           
       - name: Prepare build environment
+              - name: Verify NOWIFI configuration
+        working-directory: openwrt
+        run: |
+          set -euo pipefail
+
+          # 必须保留：1G 内存档 / 你的机型
+          grep -q '^CONFIG_ATH11K_MEM_PROFILE_1G=y$' .config
+          grep -q '^CONFIG_NSS_MEM_PROFILE_HIGH=y$' .config
+          grep -q '^CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_redmi_ax6-stock=y$' .config
+
+          # 必须保留：有线加速
+          grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv=y$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-qca-ppe-nss=y$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-pppoe=y$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-bridge-mgr=y$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-qca-nss-ecm=y$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-qca-mcs=y$' .config
+          grep -q '^CONFIG_PACKAGE_nss-tools=y$' .config
+
+          # 必须被剔除：ath11k 驱动一旦被拉成 =y 就停（=m 与 is not set 都放行）
+          if grep -qE '^CONFIG_PACKAGE_kmod-ath11k(-ahb)?=y$' .config; then
+            echo "::error::ath11k driver is back in the image - do not flash this build"
+            grep -E '^CONFIG_PACKAGE_kmod-ath11k' .config
+            exit 1
+          fi
+
+          # wpad 只报告，不判死（没有无线设备时它不起作用）
+          echo "--- wpad ---"; grep -E '^CONFIG_PACKAGE_wpad' .config || echo "(none)"
+
+          # 第 4 步的补丁是否真的打进去了
+          grep -A2 '^&wifi {' target/linux/qualcommax/dts/ipq8071-ax6-stock.dts \
+            | grep -q 'status = "disabled";'
+
+          echo 'NOWIFI checks passed'
         env:
           OPENWRT_DIR: ${{ github.workspace }}/openwrt
           BUILDER_REPO: ${{ github.workspace }}/builder
