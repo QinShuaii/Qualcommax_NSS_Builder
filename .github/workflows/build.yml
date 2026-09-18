@@ -172,11 +172,32 @@ jobs:
           fetch-depth: 0
           path: openwrt
 
+      - name: Drop stale duplicate upstream patch
+        working-directory: openwrt
+        run: |
+          set -euo pipefail
+          d=target/linux/qualcommax/patches-6.18
+          f="$d/0951-net-pcs-add-uniphy-pcs.patch"
+          # UPSTREAM_REF=hermes-v12 carries a stale second copy of the QCA UNIPHY
+          # PCS patch. 0951-net-pcs-Enable-for-QCA-UNIPHY-PCS-driver.patch already
+          # adds the identical Kconfig block and Makefile line, and it sorts
+          # first, so the leftover one always kills the kernel prepare stage with
+          #   Hunk #1 FAILED at 10.  (exit 2)
+          # Upstream keeps only the Enable one, so dropping this is a no-op once
+          # hermes-v12 is fixed upstream (rm -f is idempotent either way).
+          if [ -f "$f" ]; then
+            rm -f "$f"
+            echo "dropped $f"
+          else
+            echo "$f already absent - nothing to do"
+          fi
+          ls -1 "$d"/0951-* || true
+
       - name: Checkout builder repo
         uses: actions/checkout@v7
         with:
           path: builder
-          
+
       - name: Apply Redmi AX6 NOWIFI DTS patch
         working-directory: openwrt
         run: |
@@ -189,9 +210,14 @@ jobs:
             patch -p1 --forward <"$p"
           fi
           grep -A2 '^&wifi {' "$f" | grep -q 'status = "disabled";'
-          
+
       - name: Prepare build environment
-              - name: Verify NOWIFI configuration
+        env:
+          OPENWRT_DIR: ${{ github.workspace }}/openwrt
+          BUILDER_REPO: ${{ github.workspace }}/builder
+        run: bash builder/scripts/prepare-build.sh
+
+      - name: Verify NOWIFI configuration
         working-directory: openwrt
         run: |
           set -euo pipefail
@@ -225,10 +251,6 @@ jobs:
             | grep -q 'status = "disabled";'
 
           echo 'NOWIFI checks passed'
-        env:
-          OPENWRT_DIR: ${{ github.workspace }}/openwrt
-          BUILDER_REPO: ${{ github.workspace }}/builder
-        run: bash builder/scripts/prepare-build.sh
 
       - name: Set reproducible-build env
         working-directory: openwrt
